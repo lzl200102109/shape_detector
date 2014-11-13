@@ -9,7 +9,6 @@
 #include <sensor_msgs/image_encodings.h>
 #include <image_transport/image_transport.h>
 
-#include "Geometry.h"
 using namespace cv;
 using namespace std;
 

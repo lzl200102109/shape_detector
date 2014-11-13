@@ -18,7 +18,7 @@
 *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "Geometry.h"
+#include "geometry.h"
 #include "math.h"
 
 #include <cstdio>
