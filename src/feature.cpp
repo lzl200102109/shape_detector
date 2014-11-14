@@ -2,64 +2,7 @@
 using namespace cv;
 using namespace std;
 
-// define constants.
-int iLowH = 0;
-int iHighH = 179;
-
-int iLowS = 227;
-int iHighS = 255;
-
-int iLowV = 51;
-int iHighV = 255;
-
-
-Mat_<double> detectCentroids(Mat &imgOriginal)
-{
-	Mat_<double> centroidMatrix(6, 2);
-	centroidMatrix << 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0;
-
-	Mat imgThresholded;
-	Mat imgTracked;
-
-	ThresholdImage(imgOriginal, imgThresholded);
-
-	return centroidMatrix;
-}
-
-static double angle(Point pt1, Point pt2, Point pt0) {
-	double dx1 = pt1.x - pt0.x;
-	double dy1 = pt1.y - pt0.y;
-	double dx2 = pt2.x - pt0.x;
-	double dy2 = pt2.y - pt0.y;
-	return (dx1 * dx2 + dy1 * dy2)
-			/ sqrt((dx1 * dx1 + dy1 * dy1) * (dx2 * dx2 + dy2 * dy2) + 1e-10);
-}
-
-void setLabel(Mat& image, string label, vector<Point>& approx) {
-	int fontface = FONT_HERSHEY_SIMPLEX;
-	double scale = 0.3;
-	int thickness = .5;
-	int baseline = 0;
-
-	Point centroid = calCentroid(approx);		// centroid
-	ostringstream x_s, y_s;
-	x_s << centroid.x;
-	y_s << centroid.y;
-	label = label + "(" + x_s.str() + "," + y_s.str() + ")";
-
-	Size text = getTextSize(label, fontface, scale, thickness, &baseline);
-
-
-	Point pt(centroid.x - text.width/2,
-			 centroid.y + text.height/2);
-
-	rectangle(image, pt + Point(0, baseline),
-			pt + Point(text.width, -text.height), CV_RGB(255, 255, 255),
-			CV_FILLED);
-	putText(image, label, pt, fontface, scale, CV_RGB(0, 0, 0), thickness, 8);
-}
-
-void setLabel(Mat& image, Point2f center) {
+void setLabel(Mat& image, Point2f center, string shape_label) {
 	int fontface = FONT_HERSHEY_SIMPLEX;
 	double scale = 0.3;
 	int thickness = .5;
@@ -68,7 +11,7 @@ void setLabel(Mat& image, Point2f center) {
 	ostringstream x_s, y_s;
 	x_s << center.x;
 	y_s << center.y;
-	string label = "(" + x_s.str() + "," + y_s.str() + ")";
+	string label = shape_label + "(" + x_s.str() + "," + y_s.str() + ")";
 
 	Size text = getTextSize(label, fontface, scale, thickness, &baseline);
 
@@ -82,45 +25,7 @@ void setLabel(Mat& image, Point2f center) {
 	putText(image, label, pt, fontface, scale, CV_RGB(0, 0, 0), thickness, 8);
 }
 
-void CreateControlWindow() {
-
-	namedWindow("Control"); //create a window called "Control"     , CV_WINDOW_AUTOSIZE
-
-	//Create trackbars in "Control" window
-	createTrackbar("LowH", "Control", &iLowH, 179); //Hue (0 - 179)
-	createTrackbar("HighH", "Control", &iHighH, 179);
-
-	createTrackbar("LowS", "Control", &iLowS, 255); //Saturation (0 - 255)
-	createTrackbar("HighS", "Control", &iHighS, 255);
-
-	createTrackbar("LowV", "Control", &iLowV, 255); //Value (0 - 255)
-	createTrackbar("HighV", "Control", &iHighV, 255);
-}
-
-void ThresholdImage(Mat &imgOriginal, Mat &imgThresholded)
-{
-	Mat imgHSV;
-
-	cvtColor(imgOriginal, imgHSV, COLOR_BGR2HSV); //Convert the captured frame from BGR to HSV
-
-	inRange(imgHSV, Scalar(iLowH, iLowS, iLowV),
-			Scalar(iHighH, iHighS, iHighV), imgThresholded); //Threshold the image
-
-	//morphological opening (removes small objects from the foreground)
-	erode(imgThresholded, imgThresholded,
-			getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
-	dilate(imgThresholded, imgThresholded,
-			getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
-
-	//morphological closing (removes small holes from the foreground)
-	dilate(imgThresholded, imgThresholded,
-			getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
-	erode(imgThresholded, imgThresholded,
-			getStructuringElement(MORPH_ELLIPSE, Size(5, 5)));
-}
-
-void ThresholdImage(Mat &imgOriginal, Mat &imgGrayscale, Mat &imgThresholded)
-{
+void ThresholdImage(Mat &imgOriginal, Mat &imgGrayscale, Mat &imgThresholded) {
 	// trackbar
 	int threshold_value = 60;
 	int threshold_type = 1;
@@ -158,171 +63,132 @@ void ThresholdImage(Mat &imgOriginal, Mat &imgGrayscale, Mat &imgThresholded)
 			getStructuringElement(MORPH_ELLIPSE, Size(morph_size, morph_size)));
 }
 
-void ShapeIdentification(Mat &imgOriginal, Mat &imgThresholded, Mat &imgTracked) {
+Mat getFeatureVector(Mat &imgThresholded, Mat &imgFeature) {
 
-	vector<Vec4i> hierarchy;  //hold the pointer to a contour
-	CvSeq* result;   //hold sequence of points of a contour
-	vector<vector<Point> > contours; //storage area for all contours
-
-	//finding all contours in the image
-	findContours(imgThresholded, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE, cvPoint(0, 0));
-
-	Point centroid;
-	vector<Point> approx;
-	string label;
-	imgTracked = imgOriginal.clone();
-//	cout << contours.size() << endl;
-
-	for (int i = 0; i < contours.size(); i++) {
-
-		// Approximate contour with accuracy proportional
-		// to the contour perimeter
-		approxPolyDP(Mat(contours[i]), approx,
-				arcLength(Mat(contours[i]), true) * 0.02, true);
-
-		// Skip small or non-convex objects
-		if (fabs(contourArea(contours[i])) < 100
-				|| !isContourConvex(approx))
-			continue;
-
-		if (approx.size() == 3) {
-//			centroid = calCentroid(approx);
-//			cout << contours[i] << endl;
-			setLabel(imgTracked, "TRI", approx);    // Triangles
-			//drawing lines around the triangle
-			line(imgTracked, approx[0], approx[1], cvScalar(255,0,0),4);
-			line(imgTracked, approx[1], approx[2], cvScalar(255,0,0),4);
-			line(imgTracked, approx[2], approx[0], cvScalar(255,0,0),4);
-
-
-//			cout << approx[0] << "," << approx[1] << "," << approx[2] << "," << centroid[0] << endl;
-		}
-		else if (approx.size() >= 4 && approx.size() <= 6) {
-			// Number of vertices of polygonal curve
-			int vtc = approx.size();
-
-			// Get the cosines of all corners
-			vector<double> cos;
-			for (int j = 2; j < vtc + 1; j++)
-				cos.push_back(
-						angle(approx[j % vtc], approx[j - 2], approx[j - 1]));
-
-			// Sort ascending the cosine values
-			sort(cos.begin(), cos.end());
-
-			// Get the lowest and the highest cosine
-			double mincos = cos.front();
-			double maxcos = cos.back();
-
-			// Use the degrees obtained above and the number of vertices
-			// to determine the shape of the contour
-			if (vtc == 4 && mincos >= -0.1 && maxcos <= 0.3) {
-				setLabel(imgTracked, "RECT", approx);    // Rectangles
-				//drawing lines around the triangle
-				line(imgTracked, approx[0], approx[1], cvScalar(255,0,0),4);
-				line(imgTracked, approx[1], approx[2], cvScalar(255,0,0),4);
-				line(imgTracked, approx[2], approx[3], cvScalar(255,0,0),4);
-				line(imgTracked, approx[3], approx[0], cvScalar(255,0,0),4);
-			}
-			else if (vtc == 5 && mincos >= -0.34 && maxcos <= -0.27) {
-				setLabel(imgTracked, "PENTA", approx);
-				//drawing lines around the triangle
-				line(imgTracked, approx[0], approx[1], cvScalar(255,0,0),4);
-				line(imgTracked, approx[1], approx[2], cvScalar(255,0,0),4);
-				line(imgTracked, approx[2], approx[3], cvScalar(255,0,0),4);
-				line(imgTracked, approx[3], approx[4], cvScalar(255,0,0),4);
-				line(imgTracked, approx[4], approx[0], cvScalar(255,0,0),4);
-			}
-			else if (vtc == 6 && mincos >= -0.55 && maxcos <= -0.45) {
-				setLabel(imgTracked, "HEXA", approx);
-				//drawing lines around the triangle
-				line(imgTracked, approx[0], approx[1], cvScalar(255,0,0),4);
-				line(imgTracked, approx[1], approx[2], cvScalar(255,0,0),4);
-				line(imgTracked, approx[2], approx[3], cvScalar(255,0,0),4);
-				line(imgTracked, approx[3], approx[4], cvScalar(255,0,0),4);
-				line(imgTracked, approx[4], approx[5], cvScalar(255,0,0),4);
-				line(imgTracked, approx[5], approx[0], cvScalar(255,0,0),4);
-			}
-		}
-		else {
-			// Detect and label circles
-			double area = contourArea(contours[i]);
-			Rect r = boundingRect(contours[i]);
-			int radius = r.width / 2;
-
-			if (abs(1 - ((double) r.width / r.height)) <= 0.2
-					&& abs(1 - (area / (CV_PI * pow(radius, 2))))
-							<= 0.2) {
-				setLabel(imgTracked, "CIR",approx);
-				//drawing lines around the circle
-	//					Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
-				vector<Point2f>center(1);
-				vector<float>radius(1);
-				minEnclosingCircle( (Mat)approx, center[0], radius[0] );
-				circle( imgTracked, center[0], (int)radius[0], cvScalar(255,0,0), 2, 8, 0 );
-
-			}
-
-		}
-	}
-}
-
-Point calCentroid (vector<Point> & points) {
-	Point centroid = Point(0,0);
-	for (int i = 0; i < points.size(); i++)
-		centroid = centroid + points[i];
-	centroid.x = centroid.x / points.size();
-	centroid.y = centroid.y / points.size();
-	return centroid;
-}
-
-void getFeatureVector(Mat &imgThresholded) {
-
-	vector<Vec4i> hierarchy;  //hold the pointer to a contour
-	vector<vector<Point> > contours; //storage area for all contours
+	/* imagePts stores the image coord's in the following order:
+	 * 0: large circle
+	 * 1: small circle
+	 * 2: square
+	 * 3. rectangle
+	 * 4. triangle
+	 * 5. hexagon
+	 */
+	Mat_<double> imagePts(6,2);					// image coordinates of detected shapes.
 
 	//finding all contours in the image
+	vector<Vec4i> hierarchy;  					// hold the pointer to a contour
+	vector<vector<Point> > contours; 			// storage area for all contours
 	findContours(imgThresholded, contours, hierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE, cvPoint(0, 0));
-//	cout << contours.size() << endl;
 
-	/// Approximate contours to polygons + get bounding rects and circles
+	// Approximate contours to polygons + get bounding rects and circles
 	vector<vector<Point> > contours_poly( contours.size() );
 	vector<double> area( contours.size() );
 	vector<Rect> boundRect( contours.size() );
 	vector<Point2f>center( contours.size() );
 	vector<float>radius( contours.size() );
+	vector<string> shape_label( contours.size() );
+
+	int j = 0;	// circle index
 
 	for( int i = 0; i < contours.size(); i++ ) {
+
+		// approximate polygns.
 		approxPolyDP( Mat(contours[i]), contours_poly[i], 3, true );
+		// Skip small or non-convex objects
+		if (fabs(contourArea(contours[i])) < 100 || !isContourConvex(contours_poly[i]))
+			continue;
+
 		area[i] = contourArea(contours[i]);
 		boundRect[i] = boundingRect( Mat(contours_poly[i]) );
 		minEnclosingCircle( (Mat)contours_poly[i], center[i], radius[i] );
-	}
 
-	/// Draw polygonal contour + bonding rects + circles
-	Mat imgFeature = Mat::zeros( imgThresholded.size(), CV_8UC3 );
-	for( int i = 0; i< contours.size(); i++ )
-	 {
-//		Scalar color = Scalar( rng.uniform(0, 255), rng.uniform(0,255), rng.uniform(0,255) );
+		double L = boundRect[i].width;
+		double H = boundRect[i].height;
+		double r = radius[i];
+		double S = area[i];
+		double x = center[i].x;
+		double y = center[i].y;
+		double pi = CV_PI;
+
+		if  (	// detect circle
+					(0.8 < L/H && L/H < 1.2)
+				 && (L*H > pi*pow(r,2))
+				 && (pi*pow(r,2) - S < 0.5*pow(r,2))
+				 && (40 < x && x < 600)
+				 && (40 < y && y < 440)
+			) {
+			shape_label[i] = "Cir";
+
+			imagePts(j,0) = x;
+			imagePts(j,1) = y;
+
+			// re-order the circle index if necessary.
+			double r_temp[2] = {0, 0};
+			r_temp[j] = r;
+			if (j == 1 && r_temp[0] < r_temp[1]) {
+				imagePts(1,0) = imagePts(0,0);
+				imagePts(1,1) = imagePts(0,1);
+				imagePts(0,0) = x;
+				imagePts(0,1) = y;
+			}
+			j++;
+
+		} else if (	// detect square
+					(0.8 < L/H && L/H < 1.2)
+				 && (L*H -S < 0.2*L*H)
+				 && (L*H > (pi-1.5)*pow(r,2))
+				 && (40 < x && x < 600)
+				 && (40 < y && y < 440)
+				  ) {
+			shape_label[i] = "Sqr";
+			imagePts(2,0) = x;
+			imagePts(2,1) = y;
+
+		} else if (	// detect rectangle
+					(L/H > 2 || H/L > 2)
+				 && (pi*pow(r,2) - L*H > 0.2*pow(r,2))
+				 && (L*H - S < 0.2*L*H)
+				 && (40 < x && x < 600)
+				 && (40 < y && y < 440)
+				  ) {
+			shape_label[i] = "Rec";
+			imagePts(3,0) = x;
+			imagePts(3,1) = y;
+
+		} else if (	// detect triangle
+					(L*H > 1.5*S)
+				 && (L*H < pi*pow(r,2))
+				 && (40 < x && x < 600)
+				 && (40 < y && y < 440)
+				  ) {
+			shape_label[i] = "Tri";
+			imagePts(4,0) = x;
+			imagePts(4,1) = y;
+
+		} else if (	// detect hexagon
+					(L/H < 2 || H/L < 2)
+				 && (L*H > 0.9*pi*pow(r,2))
+				 && (pi*pow(r,2) - S > 0)
+				 && (40 < x && x < 600)
+				 && (40 < y && y < 440)
+				  ) {
+			shape_label[i] = "Hex";
+			imagePts(5,0) = x;
+			imagePts(5,1) = y;
+
+		}else {
+			ostringstream i_s;
+			i_s << i;
+			shape_label[i] = i_s.str() + " ";
+		}
+
+		// generate feature on the original image.
 		drawContours( imgFeature, contours_poly, i, cvScalar(255,0,0), 1, 8, vector<Vec4i>(), 0, Point() );
-		setLabel(imgFeature, center[i]);
-//		rectangle( drawing, boundRect[i].tl(), boundRect[i].br(), cvScalar(255,0,0), 2, 8, 0 );
-//		circle( drawing, center[i], (int)radius[i], cvScalar(255,0,0), 2, 8, 0 );
+		setLabel(imgFeature, center[i], shape_label[i]);
+		rectangle( imgFeature, boundRect[i].tl(), boundRect[i].br(), cvScalar(0, 255,0), 1, 8, 0 );
+		circle( imgFeature, center[i], (int)radius[i], cvScalar(0,0,255), 1, 8, 0 );
 	 }
 
-	/// Show in a window
-	namedWindow( "Contours", CV_WINDOW_AUTOSIZE );
-	imshow( "Contours", imgFeature );
-
-//	for (int i = 0; i < contours.size(); i++) {
-//
-//		// Approximate contour with accuracy proportional to the contour perimeter
-//		approxPolyDP(Mat(contours[i]), approx, arcLength(Mat(contours[i]), true) * 0.02, true);
-//
-//		// Skip small or non-convex objects
-//		if (fabs(contourArea(contours[i])) < 100 || !isContourConvex(approx))
-//			continue;
-//	}
-
+//	cout << imagePts << endl << endl;
+	return imagePts;
 }
-

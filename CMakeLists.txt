@@ -29,18 +29,22 @@ catkin_package()
 include_directories(${catkin_INCLUDE_DIRS})
 
 ## Declare a cpp executable and specify libraries to link a library or executable target against
-add_executable(shape_detector src/shape_detector.cpp)
-target_link_libraries(shape_detector
-  ${OpenCV_LIBRARIES}
-  ${catkin_LIBRARIES}
-)
-add_executable(shape_detector_img_gray 
-			   src/shape_detector_img_gray.cpp
+add_executable(shape_detector src/shape_detector_video.cpp
                src/feature.h
 			   src/feature.cpp
 			   src/geometry.h
 			   src/geometry.cpp)
-target_link_libraries(shape_detector_img_gray
+target_link_libraries(shape_detector
+  ${OpenCV_LIBRARIES}
+  ${catkin_LIBRARIES}
+)
+add_executable(shape_detector_image
+			   src/shape_detector_image.cpp
+               src/feature.h
+			   src/feature.cpp
+			   src/geometry.h
+			   src/geometry.cpp)
+target_link_libraries(shape_detector_image
   ${OpenCV_LIBRARIES}
   ${catkin_LIBRARIES}
 )
