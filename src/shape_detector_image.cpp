@@ -26,15 +26,23 @@ int main(int argc, char** argv) {
 		}
 
 		// threshold original image.
-		 ThresholdImage(imgOriginal, imgGrayscale, imgThresholded);
+		ThresholdImage(imgOriginal, imgGrayscale, imgThresholded);
 
-		 // get feature vector
-		 getFeatureVector(imgThresholded, imgFeature);
+		// get image points
+		Mat imagePts = calibrateImagePoints(getFeatureVector(imgThresholded, imgFeature));
+//		cout << "imgPts = " << endl << imagePts << endl << endl;
+//		cout << "worldPts = " << endl << getWorldPts() << endl << endl;
+
+
+//		// estimate pose
+//		Mat_<double> simplePose = estimatePose(imagePts);
+//		cout << "simplePose = " << endl << simplePose.t() << endl;
 
 		// show images.
-		imshow("Original Image", imgOriginal); //show the original image
+//		imshow("Original Image", imgOriginal); //show the original image
 		imshow("Grayscale Image", imgGrayscale); //show the original image
 		imshow("Thresholded Image", imgThresholded); //show the thresholded image
+		imshow("Featured Image", imgFeature); //show the thresholded image
 
 		// Press ESC to exit.
 		if (waitKey(30) == 27) //wait for 'esc' key press for 30ms. If 'esc' key is pressed, break loop

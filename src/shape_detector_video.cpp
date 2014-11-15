@@ -29,7 +29,7 @@ int main(int argc, char** argv) {
     image_transport::Subscriber sub = it.subscribe("/usb_cam/image_raw", 1, &imageCallback);
 
     // define windows for image display.
-    namedWindow("Original Image");
+//    namedWindow("Original Image");
     namedWindow("Grayscale Image");
     namedWindow("Thresholded Image");
     namedWindow("Feature Image");
@@ -62,13 +62,19 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
     // threshold original image.
 	ThresholdImage(imgOriginal, imgGrayscale, imgThresholded);
 
-	// get feature vector
-	getFeatureVector(imgThresholded, imgFeature);
+	// get image points
+	Mat imagePts = calibrateImagePoints(getFeatureVector(imgThresholded, imgFeature));
+//	cout << imagePts << endl << endl;
+//	cout << (imagePts.cols == 3) << endl;
+
+	// estimate pose
+	Mat_<double> simplePose = estimatePose(imagePts);
+//	cout << simplePose.t() << endl << endl;
 
 	// show images.
-	imshow("Original Image", input_bridge->image); 	// show the original image
-	imshow("Grayscale Image", imgGrayscale);		// show the grayscale image
-	imshow("Thresholded Image", imgThresholded); 	// show the thresholded image
+//	imshow("Original Image", input_bridge->image); 	// show the original image
+//	imshow("Grayscale Image", imgGrayscale);		// show the grayscale image
+//	imshow("Thresholded Image", imgThresholded); 	// show the thresholded image
 	imshow("Feature Image", imgFeature); 			// show the original image
 
 	// Press ESC to exit.

@@ -24,43 +24,68 @@
 #include <cstdio>
 using namespace std; // DEBUG
 
-const double SCALE_FACTOR = 0.5;
+const double SCALE_FACTOR = 1.0/4;
 
 Mat_<double> estimateRotTransl(
     Mat_<double> const worldPts,
     Mat_<double> const imagePts)
 {
-    assert(imagePts.cols == 2);
+    assert(imagePts.cols == 3);
     assert(worldPts.cols == 3);
     assert(imagePts.rows == worldPts.rows);
     // TODO verify all worldPts have z=0
 
-    // See "pose estimation" section in the paper.
 
+
+    int n = imagePts.rows;
+
+    Mat_<double> worldPtsValid;
+    Mat_<double> imagePtsValid;
+    for (int i = 0; i < n; i++) {
+    	if (imagePts(i,2) != 0) {
+    		worldPtsValid.push_back(worldPts.row(i));
+    		imagePtsValid.push_back(imagePts.row(i));
+    	}
+    }
+
+    cout << worldPtsValid << endl;
+    cout << imagePtsValid << endl;
+
+    // See "pose estimation" section in the paper.
+    n = imagePtsValid.rows;
+
+    // check that there are enough number of points (>=4).
+    if (n < 5) {
+    	cout << "No enough Points" << endl;
+    	Mat_<double> rotTransl(3, 4);
+    	rotTransl << 0,0,0,0,
+    			     0,0,0,0,
+    			     0,0,0,0;
+    	return rotTransl;
+    }
     // Set up linear system of equations.
-    int const n = imagePts.rows;
     Mat_<double> F(2 * n, 9);
     for(int i = 0; i < n; i++)
     {
-        F(2 * i, 0) = worldPts(i, 0);
+        F(2 * i, 0) = worldPtsValid(i, 0);
         F(2 * i, 1) = 0;
-        F(2 * i, 2) = -worldPts(i, 0) * imagePts(i, 0);
-        F(2 * i, 3) = worldPts(i, 1);
+        F(2 * i, 2) = -worldPtsValid(i, 0) * imagePtsValid(i, 0);
+        F(2 * i, 3) = worldPtsValid(i, 1);
         F(2 * i, 4) = 0;
-        F(2 * i, 5) = -worldPts(i, 1) * imagePts(i, 0);
+        F(2 * i, 5) = -worldPtsValid(i, 1) * imagePtsValid(i, 0);
         F(2 * i, 6) = 1;
         F(2 * i, 7) = 0;
-        F(2 * i, 8) = -imagePts(i, 0);
+        F(2 * i, 8) = -imagePtsValid(i, 0);
 
         F(2 * i + 1, 0) = 0;
-        F(2 * i + 1, 1) = worldPts(i, 0);
-        F(2 * i + 1, 2) = -worldPts(i, 0) * imagePts(i, 1);
+        F(2 * i + 1, 1) = worldPtsValid(i, 0);
+        F(2 * i + 1, 2) = -worldPtsValid(i, 0) * imagePtsValid(i, 1);
         F(2 * i + 1, 3) = 0;
-        F(2 * i + 1, 4) = worldPts(i, 1);
-        F(2 * i + 1, 5) = -worldPts(i, 1) * imagePts(i, 1);
+        F(2 * i + 1, 4) = worldPtsValid(i, 1);
+        F(2 * i + 1, 5) = -worldPtsValid(i, 1) * imagePtsValid(i, 1);
         F(2 * i + 1, 6) = 0;
         F(2 * i + 1, 7) = 1;
-        F(2 * i + 1, 8) = -imagePts(i, 1);
+        F(2 * i + 1, 8) = -imagePtsValid(i, 1);
     }
 
     // Find least-squares estimate of rotation + translation.
@@ -96,6 +121,9 @@ Mat_<double> estimateRotTransl(
     rot.col(1).copyTo(rotTransl.col(1));
     rot.col(2).copyTo(rotTransl.col(2));
     transl.copyTo(rotTransl.col(3));
+
+//    cout << "rotTransl = " << endl << rotTransl << endl << endl;
+
     return rotTransl;
 }
 
@@ -114,83 +142,46 @@ Mat_<double> estimatePose(Mat_<double> const imagePts)
     rotTransl.col(3).copyTo(translation);
     Mat_<double> cameraLoc = -rotMatrix.t() * translation;
     Mat_<double> simplePose(4, 1);
-    simplePose(0) = cameraLoc(0)/1000;  // x
-    simplePose(1) = cameraLoc(1)/1000;  // y
-    simplePose(2) = cameraLoc(2)/1000;  // z
+    simplePose(0) = cameraLoc(0);  // x
+    simplePose(1) = cameraLoc(1);  // y
+    simplePose(2) = cameraLoc(2);  // z
     // Yaw (rotation around z axis):
     // See http://planning.cs.uiuc.edu/node103.html
     simplePose(3) = atan2(rotMatrix(1, 0), rotMatrix(0, 0));
     // cout << "simplePose: " << simplePose << endl;
-    return CoordTransform(M_PI/2, 0, M_PI)*simplePose;
+    return simplePose;
 }
 
 Mat_<double> getWorldPts()
 {
-    Mat_<double> worldPtsHom(24, 3, CV_64FC1);
-    for(int i = 0; i < 24; i++) {
+    Mat_<double> worldPtsHom(6, 3, CV_64FC1);
+    for(int i = 0; i < 6; i++) {
         worldPtsHom[i][2] = 0;  // z = 0
     }
 
-    // Square A:
-    worldPtsHom(0, 0) = 200*SCALE_FACTOR;
-    worldPtsHom(0, 1) = 200*SCALE_FACTOR;
-    worldPtsHom(1, 0) = 0;
-    worldPtsHom(1, 1) = 200*SCALE_FACTOR;
-    worldPtsHom(2, 0) = 0;
+    /* Define coordinate in millimeter */
+    // Large Circle:
+    worldPtsHom(0, 0) = 0;
+    worldPtsHom(0, 1) = 0;
+    // Small Circle:
+    worldPtsHom(1, 0) = 150;
+    worldPtsHom(1, 1) = 0;
+    // Square:
+    worldPtsHom(2, 0) = 300;
     worldPtsHom(2, 1) = 0;
-    worldPtsHom(3, 0) = 200*SCALE_FACTOR;
-    worldPtsHom(3, 1) = 0;
+    // Rectangle:
+    worldPtsHom(3, 0) = 0;
+    worldPtsHom(3, 1) = 300;
+    // Triangle:
+    worldPtsHom(4, 0) = -300;
+    worldPtsHom(4, 1) = 0;
+    // Hexagon:
+    worldPtsHom(5, 0) = 0;
+    worldPtsHom(5, 1) = -300;
 
-    // Square B:
-    worldPtsHom(4, 0) = -120*SCALE_FACTOR;
-    worldPtsHom(4, 1) = 200*SCALE_FACTOR;
-    worldPtsHom(5, 0) = -200*SCALE_FACTOR;
-    worldPtsHom(5, 1) = 200*SCALE_FACTOR;
-    worldPtsHom(6, 0) = -200*SCALE_FACTOR;
-    worldPtsHom(6, 1) = 120*SCALE_FACTOR;
-    worldPtsHom(7, 0) = -120*SCALE_FACTOR;
-    worldPtsHom(7, 1) = 120*SCALE_FACTOR;
+    worldPtsHom = worldPtsHom * SCALE_FACTOR;
 
-    // Squre C:
-    worldPtsHom(8, 0) = -120*SCALE_FACTOR;
-    worldPtsHom(8, 1) = 40*SCALE_FACTOR;
-    worldPtsHom(9, 0) = -200*SCALE_FACTOR;
-    worldPtsHom(9, 1) = 40*SCALE_FACTOR;
-    worldPtsHom(10, 0) = -200*SCALE_FACTOR;
-    worldPtsHom(10, 1) = -40*SCALE_FACTOR;
-    worldPtsHom(11, 0) = -120*SCALE_FACTOR;
-    worldPtsHom(11, 1) = -40*SCALE_FACTOR;
-
-    // Squre D:
-    worldPtsHom(12, 0) = -120*SCALE_FACTOR;
-    worldPtsHom(12, 1) = -120*SCALE_FACTOR;
-    worldPtsHom(13, 0) = -200*SCALE_FACTOR;
-    worldPtsHom(13, 1) = -120*SCALE_FACTOR;
-    worldPtsHom(14, 0) = -200*SCALE_FACTOR;
-    worldPtsHom(14, 1) = -200*SCALE_FACTOR;
-    worldPtsHom(15, 0) = -120*SCALE_FACTOR;
-    worldPtsHom(15, 1) = -200*SCALE_FACTOR;
-
-    // Squre E:
-    worldPtsHom(16, 0) = 40*SCALE_FACTOR;
-    worldPtsHom(16, 1) = -120*SCALE_FACTOR;
-    worldPtsHom(17, 0) = -40*SCALE_FACTOR;
-    worldPtsHom(17, 1) = -120*SCALE_FACTOR;
-    worldPtsHom(18, 0) = -40*SCALE_FACTOR;
-    worldPtsHom(18, 1) = -200*SCALE_FACTOR;
-    worldPtsHom(19, 0) = 40*SCALE_FACTOR;
-    worldPtsHom(19, 1) = -200*SCALE_FACTOR;
-
-    // Squre F:
-    worldPtsHom(20, 0) = 200*SCALE_FACTOR;
-    worldPtsHom(20, 1) = -120*SCALE_FACTOR;
-    worldPtsHom(21, 0) = 120*SCALE_FACTOR;
-    worldPtsHom(21, 1) = -120*SCALE_FACTOR;
-    worldPtsHom(22, 0) = 120*SCALE_FACTOR;
-    worldPtsHom(22, 1) = -200*SCALE_FACTOR;
-    worldPtsHom(23, 0) = 200*SCALE_FACTOR;
-    worldPtsHom(23, 1) = -200*SCALE_FACTOR;
-
+//    cout << SCALE_FACTOR << endl;
     return worldPtsHom;
 }
 
@@ -289,8 +280,8 @@ void drawImagePts(Mat image, Mat_<double> const imagePts)
 Mat_<double> getCameraMatrix()
 {
     Mat_<double> cameraMatrix(3, 3);
-    cameraMatrix << 620,   0, 320,
-                      0, 620, 240,
+    cameraMatrix << 682,   0, 320,
+                      0, 682, 240,
                       0,   0,   1;
     return cameraMatrix;
 }
@@ -298,13 +289,14 @@ Mat_<double> getCameraMatrix()
 Mat_<double> calibrateImagePoints(Mat_<double> const imagePts)
 {
     Mat_<double> const cameraMatrix = getCameraMatrix();
-    assert(imagePts.cols == 2);
-    Mat_<double> calibratedImagePts(imagePts.rows, 2);
+    assert(imagePts.cols == 3);
+    Mat_<double> calibratedImagePts(imagePts.rows, 3);
     for(int i = 0; i < imagePts.rows; i++) {
         calibratedImagePts(i, 0) = \
             (imagePts(i, 0) - cameraMatrix(0, 2)) / cameraMatrix(0, 0);
         calibratedImagePts(i, 1) = \
             (imagePts(i, 1) - cameraMatrix(1, 2)) / cameraMatrix(1, 1);
+        calibratedImagePts(i, 2) = imagePts(i, 2);
     }
     return calibratedImagePts;
 }
