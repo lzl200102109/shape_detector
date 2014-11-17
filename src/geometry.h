@@ -21,6 +21,10 @@
 #include <opencv2/opencv.hpp>
 using namespace cv;
 
+
+const double f = 682.0;					// focal length in pixel
+const double SCALE_FACTOR = 1.0 / 4;	// scale factor
+
 /**
  * Estimate rotation and translation of camera w.r.t. world.
  *
@@ -48,7 +52,9 @@ Mat_<double> estimateRotTransl(
  * Returns:
  * pose (4x1) = x, y, z, yaw coords of camera
  */
-Mat_<double> estimatePose(Mat_<double> const imagePts);
+Mat_<double> estimatePose_SVD(Mat_<double> const imagePts, Mat_<double> const worldPts);
+
+Mat_<double> estimatePose_GEO(Mat_<double> const imagePts, Mat_<double> const worldPts);
 
 /**
  * Return landing pad points in the order described in the paper.

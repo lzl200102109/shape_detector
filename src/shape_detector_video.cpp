@@ -62,14 +62,41 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
     // threshold original image.
 	ThresholdImage(imgOriginal, imgGrayscale, imgThresholded);
 
-	// get image points
-	Mat imagePts = calibrateImagePoints(getFeatureVector(imgThresholded, imgFeature));
-//	cout << imagePts << endl << endl;
-//	cout << (imagePts.cols == 3) << endl;
+	bool method = 1;	// default method is by simple geometry.
+	if (method) {
+			/* METHOD 1: SIMPLE GEOMETRY */
 
-	// estimate pose
-	Mat_<double> simplePose = estimatePose(imagePts);
-//	cout << simplePose.t() << endl << endl;
+			// get image points
+			Mat_<double> imagePts = calibrateImagePoints(getFeatureVector(imgThresholded, imgFeature));
+
+			// get world points
+			Mat_<double> worldPts = getWorldPts();
+
+//				cout << "imgPts = " << endl << imagePts << endl << endl;
+//				cout << "worldPts = " << endl << worldPts << endl << endl;
+
+			// estimate pose
+			Mat_<double> simplePose = estimatePose_GEO(imagePts, worldPts);
+//			cout << "simplePose = " << endl << simplePose.t() << endl;
+
+	} else {
+			/* METHOD 2: SIGULAR VALUE DECOMPOSITION*/
+
+			// get image points
+			Mat_<double> imagePts = calibrateImagePoints(getFeatureVector(imgThresholded, imgFeature));
+
+			// get world points
+			Mat_<double> worldPts = getWorldPts();
+
+//				cout << "imgPts = " << endl << imagePts << endl << endl;
+//				cout << "worldPts = " << endl << worldPts << endl << endl;
+
+
+			// estimate pose
+			Mat_<double> simplePose = estimatePose_SVD(imagePts, worldPts);
+//			cout << "simplePose = " << endl << simplePose.t() << endl;
+
+	}
 
 	// show images.
 //	imshow("Original Image", input_bridge->image); 	// show the original image

@@ -75,13 +75,8 @@ Mat getFeatureVector(Mat &imgThresholded, Mat &imgFeature) {
 	 * 4. triangle
 	 * 5. hexagon
 	 */
-	Mat_<double> imagePts(6,3);
-	imagePts << 0,0,0,
-			    0,0,0,
-			    0,0,0,
-			    0,0,0,
-			    0,0,0,
-			    0,0,0;					// image coordinates of detected shapes.
+	Mat_<double> imagePts(23,3);
+	imagePts = Mat::zeros(23, 3, CV_64F);		// image coordinates of detected shapes.
 
 //	cout << imagePts << endl;
 
@@ -99,6 +94,7 @@ Mat getFeatureVector(Mat &imgThresholded, Mat &imgFeature) {
 	vector<string> shape_label( contours.size() );
 
 	int j = 0;	// circle index
+	static double r_temp[2] = {0, 0};
 
 	for( int i = 0; i < contours.size(); i++ ) {
 
@@ -134,8 +130,8 @@ Mat getFeatureVector(Mat &imgThresholded, Mat &imgFeature) {
 			imagePts(j,2) = 1;
 
 			// re-order the circle index if necessary.
-			double r_temp[2] = {0, 0};
 			r_temp[j] = r;
+//			cout << "j=" << j << " r_temp[0]=" << r_temp[0] << " r_temp[1]=" << r_temp[1] <<" r=" << r << " x=" << x << " y=" << y<< endl << endl;
 			if (j == 1 && r_temp[0] < r_temp[1]) {
 				imagePts(1,0) = imagePts(0,0);
 				imagePts(1,1) = imagePts(0,1);
@@ -156,7 +152,10 @@ Mat getFeatureVector(Mat &imgThresholded, Mat &imgFeature) {
 			shape_label[i] = "Sqr";
 			imagePts(2,0) = x;
 			imagePts(2,1) = y;
-			imagePts(2,2) = 1;
+			for (int i = 2; i < 7; i++) {
+				imagePts(i,2) = 0;
+			}
+			imagePts(2,2) = 2;
 
 		} else if (	// detect rectangle
 					(L/H > 2 || H/L > 2)
@@ -166,9 +165,12 @@ Mat getFeatureVector(Mat &imgThresholded, Mat &imgFeature) {
 				 && (40 < y && y < 440)
 				  ) {
 			shape_label[i] = "Rec";
-			imagePts(3,0) = x;
-			imagePts(3,1) = y;
-			imagePts(3,2) = 1;
+			imagePts(7,0) = x;
+			imagePts(7,1) = y;
+			for (int i = 7; i < 12; i++) {
+				imagePts(i,2) = 0;
+			}
+			imagePts(7,2) = 3;
 
 		} else if (	// detect triangle
 					(L*H > 1.5*S)
@@ -177,9 +179,12 @@ Mat getFeatureVector(Mat &imgThresholded, Mat &imgFeature) {
 				 && (40 < y && y < 440)
 				  ) {
 			shape_label[i] = "Tri";
-			imagePts(4,0) = x;
-			imagePts(4,1) = y;
-			imagePts(4,2) = 1;
+			imagePts(12,0) = x;
+			imagePts(12,1) = y;
+			for (int i = 12; i < 16; i++) {
+				imagePts(i,2) = 0;
+			}
+			imagePts(12,2) = 4;
 
 		} else if (	// detect hexagon
 					(L/H < 2 || H/L < 2)
@@ -189,9 +194,12 @@ Mat getFeatureVector(Mat &imgThresholded, Mat &imgFeature) {
 				 && (40 < y && y < 440)
 				  ) {
 			shape_label[i] = "Hex";
-			imagePts(5,0) = x;
-			imagePts(5,1) = y;
-			imagePts(5,2) = 1;
+			imagePts(16,0) = x;
+			imagePts(16,1) = y;
+			for (int i = 16; i < 23; i++) {
+				imagePts(i,2) = 0;
+			}
+			imagePts(16,2) = 5;
 
 		}else {
 			ostringstream i_s;
@@ -212,6 +220,5 @@ Mat getFeatureVector(Mat &imgThresholded, Mat &imgFeature) {
 		}
 	 }
 
-//	cout << imagePts << endl << endl;
 	return imagePts;
 }

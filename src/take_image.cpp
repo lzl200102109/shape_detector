@@ -59,7 +59,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 	// Press ESC to exit.
 	if (waitKey(30) == 27) //wait for 'esc' key press for 30ms. If 'esc' key is pressed, break loop
 	{
-		imwrite( "landing_pad.jpg", imgOriginal );
+		imwrite( "landing_pad_2.jpg", imgOriginal );
 		ros::shutdown();
 	}
 

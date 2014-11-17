@@ -24,7 +24,6 @@
 #include <cstdio>
 using namespace std; // DEBUG
 
-const double SCALE_FACTOR = 1.0/4;
 
 Mat_<double> estimateRotTransl(
     Mat_<double> const worldPts,
@@ -35,10 +34,7 @@ Mat_<double> estimateRotTransl(
     assert(imagePts.rows == worldPts.rows);
     // TODO verify all worldPts have z=0
 
-
-
     int n = imagePts.rows;
-
     Mat_<double> worldPtsValid;
     Mat_<double> imagePtsValid;
     for (int i = 0; i < n; i++) {
@@ -47,9 +43,6 @@ Mat_<double> estimateRotTransl(
     		imagePtsValid.push_back(imagePts.row(i));
     	}
     }
-
-    cout << worldPtsValid << endl;
-    cout << imagePtsValid << endl;
 
     // See "pose estimation" section in the paper.
     n = imagePtsValid.rows;
@@ -127,12 +120,11 @@ Mat_<double> estimateRotTransl(
     return rotTransl;
 }
 
-Mat_<double> estimatePose(Mat_<double> const imagePts)
+Mat_<double> estimatePose_SVD(Mat_<double> const imagePts, Mat_<double> const worldPts)
 {
     // Note that given R, t, the camera location in world
     // coordinates is not just t, but instead -inv(R)*t.
 
-    Mat_<double> const worldPts = getWorldPts();
     Mat_<double> const rotTransl = estimateRotTransl(worldPts, imagePts);
     Mat_<double> rotMatrix(3, 3);
     Mat_<double> translation(3, 1);
@@ -152,36 +144,147 @@ Mat_<double> estimatePose(Mat_<double> const imagePts)
     return simplePose;
 }
 
+Mat_<double> estimatePose_GEO(Mat_<double> const imagePts, Mat_<double> const worldPts)
+{
+	// validation check.
+    assert(imagePts.cols == 3);
+    assert(worldPts.cols == 3);
+    assert(imagePts.rows == worldPts.rows);
+    // TODO verify all worldPts have z=0
+
+    // extract valid points only.
+    int n = imagePts.rows;
+    Mat_<double> worldPtsValid;
+    Mat_<double> imagePtsValid;
+    for (int i = 0; i < n; i++) {
+    	if (imagePts(i,2) != 0) {
+    		worldPtsValid.push_back(worldPts.row(i));
+    		imagePtsValid.push_back(imagePts.row(i));
+    	}
+    }
+
+    // check that there are enough number of points (>=4).
+	n = imagePtsValid.rows;
+	if (n < 3) {
+		cout << "No enough Points" << endl;
+	    Mat_<double> simplePose(4, 1);
+	    simplePose = Mat::zeros(4, 1, CV_64F);;
+	    return simplePose;
+	}
+
+    /*
+     * calculate height
+     */
+	Mat_<double> worldPtsMag(n,1), imagePtsMag(n,1);
+	magnitude( worldPtsValid.col(0).rowRange(1,n) - worldPtsValid.col(0).row(0),
+			   worldPtsValid.col(1).rowRange(1,n) - worldPtsValid.col(1).row(0),
+			   worldPtsMag) ;
+	magnitude( imagePtsValid.col(0).rowRange(1,n) - imagePtsValid.col(0).row(0),
+			   imagePtsValid.col(1).rowRange(1,n) - imagePtsValid.col(1).row(0),
+			   imagePtsMag);
+	Mat_<double> heightArray = worldPtsMag/imagePtsMag;
+	double height = mean(heightArray).val[0];
+
+	/*
+	 * calculate camera position in transformed coordinates
+	 */
+	// define landing pad coordinate basis {x_h, y_h}.
+	Vec2f x_h = normalize(Vec2f(imagePtsValid.at<double>(1,0) - imagePtsValid.at<double>(0,0),
+				      imagePtsValid.at<double>(1,1) - imagePtsValid.at<double>(0,1)));
+	Vec2f y_h = Vec2f(-x_h.val[1], x_h.val[0]);
+
+	Vec2f camCenter = -Vec2f(imagePtsValid.at<double>(0,0), imagePtsValid.at<double>(0,1));
+	camCenter = Vec2f(x_h.dot(camCenter), y_h.dot(camCenter)) * (worldPtsValid.at<double>(1,0) - worldPtsValid.at<double>(0,0))
+			                                                  / (imagePtsValid.at<double>(1,0) - imagePtsValid.at<double>(0,0));
+
+	// calculate yaw angle.
+	double yaw = atan2(x_h.val[1], x_h.val[0]);
+
+	/* assemble pose estimate */
+    Mat_<double> simplePose(4, 1);
+    simplePose(0) = camCenter.val[0];  	// x
+    simplePose(1) = camCenter.val[1];  	// y
+    simplePose(2) = height;  			// z
+    simplePose(3) = yaw;				// yaw
+
+    return simplePose;
+}
+
 Mat_<double> getWorldPts()
 {
-    Mat_<double> worldPtsHom(6, 3, CV_64FC1);
-    for(int i = 0; i < 6; i++) {
+    Mat_<double> worldPtsHom(23, 3, CV_64FC1);
+    for(int i = 0; i < worldPtsHom.rows; i++) {
         worldPtsHom[i][2] = 0;  // z = 0
     }
 
     /* Define coordinate in millimeter */
+    double L_centroid = 300.0;
     // Large Circle:
     worldPtsHom(0, 0) = 0;
     worldPtsHom(0, 1) = 0;
+
     // Small Circle:
     worldPtsHom(1, 0) = 150;
     worldPtsHom(1, 1) = 0;
+
     // Square:
-    worldPtsHom(2, 0) = 300;
+    double L_square = 80.0;
+    worldPtsHom(2, 0) = L_centroid;		// centroid
     worldPtsHom(2, 1) = 0;
+    worldPtsHom(3, 0) = L_centroid+L_square;		// upper right
+    worldPtsHom(3, 1) = 0+L_square;
+    worldPtsHom(4, 0) = L_centroid+L_square;		// lower right
+    worldPtsHom(4, 1) = 0-L_square;
+    worldPtsHom(5, 0) = L_centroid-L_square;		// lower left
+    worldPtsHom(5, 1) = 0+L_square;
+    worldPtsHom(6, 0) = L_centroid-L_square;		// upper left
+    worldPtsHom(6, 1) = 0-L_square;
+
     // Rectangle:
-    worldPtsHom(3, 0) = 0;
-    worldPtsHom(3, 1) = 300;
+    double L_rect = 55.0;
+    double H_rect = 190.0;
+    worldPtsHom(7, 0) = 0;							// centroid
+    worldPtsHom(7, 1) = L_centroid;
+    worldPtsHom(8, 0) = 0+L_rect/2;					// upper right
+    worldPtsHom(8, 1) = L_centroid+H_rect/2;
+    worldPtsHom(9, 0) = 0+L_rect/2;					// lower right
+    worldPtsHom(9, 1) = L_centroid-H_rect/2;
+    worldPtsHom(10, 0) = 0-L_rect/2;				// lower left
+    worldPtsHom(10, 1) = L_centroid-H_rect/2;
+    worldPtsHom(11, 0) = 0-L_rect/2;				// upper left
+    worldPtsHom(11, 1) = L_centroid+H_rect/2;
+
     // Triangle:
-    worldPtsHom(4, 0) = -300;
-    worldPtsHom(4, 1) = 0;
+    double L_tri = 175.0;
+    worldPtsHom(12, 0) = -L_centroid;					// centroid
+    worldPtsHom(12, 1) = 0;
+    worldPtsHom(13, 0) = -L_centroid+L_tri*sqrt(3)/6;	// upper right
+    worldPtsHom(13, 1) = 0+L_tri/2;
+    worldPtsHom(14, 0) = -L_centroid+L_tri*sqrt(3)/6;	// lower right
+    worldPtsHom(14, 1) = 0-L_tri/2;
+    worldPtsHom(15, 0) = -L_centroid-L_tri*sqrt(3)/3;	// left
+    worldPtsHom(15, 1) = 0;
+
     // Hexagon:
-    worldPtsHom(5, 0) = 0;
-    worldPtsHom(5, 1) = -300;
+    double L_hex = 100.0;
+    worldPtsHom(16, 0) = 0;
+    worldPtsHom(16, 1) = -L_centroid;
+    worldPtsHom(17, 0) = L_hex/2;
+    worldPtsHom(17, 1) = -L_centroid+L_hex*sqrt(3)/2;
+    worldPtsHom(18, 0) = L_hex;
+    worldPtsHom(18, 1) = -L_centroid;
+    worldPtsHom(19, 0) = L_hex/2;
+    worldPtsHom(19, 1) = -L_centroid-L_hex*sqrt(3)/2;
+    worldPtsHom(20, 0) = -L_hex/2;
+    worldPtsHom(20, 1) = -L_centroid-L_hex*sqrt(3)/2;
+    worldPtsHom(21, 0) = -L_hex;
+    worldPtsHom(21, 1) = -L_centroid;
+    worldPtsHom(22, 0) = -L_hex/2;
+    worldPtsHom(22, 1) = -L_centroid+L_hex*sqrt(3)/2;
 
     worldPtsHom = worldPtsHom * SCALE_FACTOR;
 
-//    cout << SCALE_FACTOR << endl;
+//    cout << worldPtsHom << endl;
     return worldPtsHom;
 }
 
@@ -290,12 +393,12 @@ Mat_<double> calibrateImagePoints(Mat_<double> const imagePts)
 {
     Mat_<double> const cameraMatrix = getCameraMatrix();
     assert(imagePts.cols == 3);
-    Mat_<double> calibratedImagePts(imagePts.rows, 3);
+    Mat_<double> calibratedImagePts = Mat::zeros(imagePts.rows, 3, CV_64F);
     for(int i = 0; i < imagePts.rows; i++) {
         calibratedImagePts(i, 0) = \
             (imagePts(i, 0) - cameraMatrix(0, 2)) / cameraMatrix(0, 0);
         calibratedImagePts(i, 1) = \
-            (imagePts(i, 1) - cameraMatrix(1, 2)) / cameraMatrix(1, 1);
+            -(imagePts(i, 1) - cameraMatrix(1, 2)) / cameraMatrix(1, 1);
         calibratedImagePts(i, 2) = imagePts(i, 2);
     }
     return calibratedImagePts;
