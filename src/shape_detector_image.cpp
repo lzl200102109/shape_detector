@@ -28,7 +28,7 @@ int main(int argc, char** argv) {
 		// threshold original image.
 		ThresholdImage(imgOriginal, imgGrayscale, imgThresholded);
 
-		bool method = 1;	// default method is by simple geometry.
+		bool method = 0;	// default method is by simple geometry.
 		if (method) {
 			/* METHOD 1: SIMPLE GEOMETRY */
 
@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
 
 			// estimate pose
 			Mat_<double> simplePose = estimatePose_GEO(imagePts, worldPts);
-//			cout << "simplePose = " << endl << simplePose.t() << endl;
+			cout << "simplePose = " << endl << simplePose.t() << endl;
 
 		} else {
 			/* METHOD 2: SIGULAR VALUE DECOMPOSITION*/
@@ -55,21 +55,21 @@ int main(int argc, char** argv) {
 			// get world points
 			Mat_<double> worldPts = getWorldPts();
 
-			cout << "imgPts = " << endl << imagePts << endl << endl;
+//			cout << "imgPts = " << endl << imagePts*f << endl << endl;
 //			cout << "worldPts = " << endl << worldPts << endl << endl;
 
 
 			// estimate pose
 			Mat_<double> simplePose = estimatePose_SVD(imagePts, worldPts);
-//			cout << "simplePose = " << endl << simplePose.t() << endl;
+			cout << "simplePose = " << endl << simplePose.t() << endl;
 
 		}
 
 
 		// show images.
 //		imshow("Original Image", imgOriginal); //show the original image
-		imshow("Grayscale Image", imgGrayscale); //show the original image
-		imshow("Thresholded Image", imgThresholded); //show the thresholded image
+//		imshow("Grayscale Image", imgGrayscale); //show the original image
+//		imshow("Thresholded Image", imgThresholded); //show the thresholded image
 		imshow("Featured Image", imgFeature); //show the thresholded image
 
 		// Press ESC to exit.

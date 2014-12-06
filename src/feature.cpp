@@ -3,12 +3,9 @@ using namespace cv;
 using namespace std;
 
 // trackbar
-int threshold_value = 100;
+int threshold_value = 35;
 int threshold_type = 1;
-int const max_value = 255;
-int const max_type = 4;
-int const max_BINARY_value = 255;
-int const morph_size = 5;
+
 
 void setLabel(Mat& image, Point2f center, string shape_label) {
 	int fontface = FONT_HERSHEY_SIMPLEX;
@@ -142,6 +139,21 @@ Mat getFeatureVector(Mat &imgThresholded, Mat &imgFeature) {
 			}
 			j++;
 
+		} else if (	// detect hexagon
+					(L/H < 2 || H/L < 2)
+				 && (L*H > 0.9*pi*pow(r,2))
+				 && (pi*pow(r,2) - S > 0)
+				 && (40 < x && x < 600)
+				 && (40 < y && y < 440)
+				  ) {
+			shape_label[i] = "Hex";
+			imagePts(16,0) = x;
+			imagePts(16,1) = y;
+			for (int i = 16; i < 23; i++) {
+				imagePts(i,2) = 0;
+			}
+			imagePts(16,2) = 5;
+
 		} else if (	// detect square
 					(0.8 < L/H && L/H < 1.2)
 				 && (L*H -S < 0.2*L*H)
@@ -185,21 +197,6 @@ Mat getFeatureVector(Mat &imgThresholded, Mat &imgFeature) {
 				imagePts(i,2) = 0;
 			}
 			imagePts(12,2) = 4;
-
-		} else if (	// detect hexagon
-					(L/H < 2 || H/L < 2)
-				 && (L*H > 0.9*pi*pow(r,2))
-				 && (pi*pow(r,2) - S > 0)
-				 && (40 < x && x < 600)
-				 && (40 < y && y < 440)
-				  ) {
-			shape_label[i] = "Hex";
-			imagePts(16,0) = x;
-			imagePts(16,1) = y;
-			for (int i = 16; i < 23; i++) {
-				imagePts(i,2) = 0;
-			}
-			imagePts(16,2) = 5;
 
 		}else {
 			ostringstream i_s;

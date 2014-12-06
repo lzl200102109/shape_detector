@@ -19,6 +19,8 @@
 */
 
 #include <opencv2/opencv.hpp>
+#include "math.h"
+
 using namespace cv;
 
 
@@ -52,6 +54,8 @@ Mat_<double> estimateRotTransl(
  * Returns:
  * pose (4x1) = x, y, z, yaw coords of camera
  */
+Mat_<double> estimatePose_SVD(Mat_<double> const imagePts, Mat_<double> const worldPts, Mat_<double> const msg_pre);
+
 Mat_<double> estimatePose_SVD(Mat_<double> const imagePts, Mat_<double> const worldPts);
 
 Mat_<double> estimatePose_GEO(Mat_<double> const imagePts, Mat_<double> const worldPts);
@@ -65,6 +69,11 @@ Mat_<double> estimatePose_GEO(Mat_<double> const imagePts, Mat_<double> const wo
  * Returns:
  * worldPts (24x3) = world points
  */
+
+Mat_<double> LPF(Mat_<double> msg_pre, Mat_<double> msg);
+
+double LPF(double msg_pre, double msg);
+
 Mat_<double> getWorldPts();
 
 /**

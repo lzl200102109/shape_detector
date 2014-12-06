@@ -1,0 +1,12 @@
+<launch>
+
+  <node name="pose_estimator" pkg="pose_estimator" type="PoseEstimator_MsgRateTest">
+  </node>
+  
+  <node name="roscopter" pkg="roscopter" type="roscopter_node.py">
+    <param name="enable-control" value="true" />
+    <param name="device" value="/dev/ttyUSB0" />
+    <param name="baudrate" value="57600" />
+  </node>
+  
+</launch>

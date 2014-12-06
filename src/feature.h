@@ -6,6 +6,13 @@
 using namespace cv;
 using namespace std;
 
+// trackbar
+
+int const max_value = 255;
+int const max_type = 4;
+int const max_BINARY_value = 255;
+int const morph_size = 1;
+
 // function prototypes.
 
 static double angle(Point , Point , Point );
