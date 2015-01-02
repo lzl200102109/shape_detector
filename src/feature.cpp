@@ -3,7 +3,8 @@ using namespace cv;
 using namespace std;
 
 // trackbar
-int threshold_value = 35;
+//int threshold_value = 35;		// black
+int threshold_value = 175;		// red
 int threshold_type = 1;
 
 
@@ -34,9 +35,9 @@ void ThresholdImage(Mat &imgOriginal, Mat &imgGrayscale, Mat &imgThresholded) {
 
 
 	/// create trackbar to choose type of threshold
-	namedWindow("Threshold Control", CV_WINDOW_AUTOSIZE);
-	createTrackbar( "Threshold Type", "Threshold Control", &threshold_type, max_type);
-	createTrackbar( "Threshold Value", "Threshold Control", &threshold_value, max_value);
+//	namedWindow("Threshold Control", CV_WINDOW_AUTOSIZE);
+//	createTrackbar( "Threshold Type", "Threshold Control", &threshold_type, max_type);
+//	createTrackbar( "Threshold Value", "Threshold Control", &threshold_value, max_value);
 
 	// convert to grayscale image
 	cvtColor(imgOriginal,imgGrayscale,CV_BGR2GRAY);
@@ -215,6 +216,7 @@ Mat getFeatureVector(Mat &imgThresholded, Mat &imgFeature) {
 				line( imgFeature, rect_points[j], rect_points[(j+1)%4], cvScalar(255,0,0), 1, 8 );
 			}
 		}
+
 	 }
 
 	return imagePts;

@@ -25,7 +25,13 @@ using namespace cv;
 
 
 const double f = 682.0;					// focal length in pixel
-const double SCALE_FACTOR = 1.0 / 4;	// scale factor
+const double SCALE_FACTOR = 1.0;	// scale factor
+
+
+
+
+double time_diff(struct timeval x , struct timeval y);
+
 
 /**
  * Estimate rotation and translation of camera w.r.t. world.
@@ -54,7 +60,7 @@ Mat_<double> estimateRotTransl(
  * Returns:
  * pose (4x1) = x, y, z, yaw coords of camera
  */
-Mat_<double> estimatePose_SVD(Mat_<double> const imagePts, Mat_<double> const worldPts, Mat_<double> const msg_pre);
+Mat_<double> estimatePose_SVD(Mat_<double> const imagePts, Mat_<double> const worldPts, Mat_<double> const msg_pre, bool& pose_valid);
 
 Mat_<double> estimatePose_SVD(Mat_<double> const imagePts, Mat_<double> const worldPts);
 

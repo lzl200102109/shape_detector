@@ -19,10 +19,33 @@
 */
 
 #include "geometry.h"
-
 #include <cstdio>
+#include <sys/time.h>
+
 using namespace std; // DEBUG
 
+struct timeval t1,t2,dt;
+
+double time_diff(struct timeval x , struct timeval y)
+{
+    double x_ms , y_ms , diff;
+
+    x_ms = (double)x.tv_sec + (double)x.tv_usec/1000000;
+    y_ms = (double)y.tv_sec + (double)y.tv_usec/1000000;
+
+    diff = (double)y_ms - (double)x_ms;
+
+    return diff;
+}
+
+Mat_<double> LPF(Mat_<double> msg_pre, Mat_<double> msg) {
+	Mat_<double>msg_filtered;
+	double alpha = 0.10;
+
+	msg_filtered = (1-alpha)*msg_pre + alpha * msg;
+
+	return msg_filtered;
+}
 
 Mat_<double> estimateRotTransl(
     Mat_<double> const worldPts,
@@ -122,48 +145,69 @@ Mat_<double> estimateRotTransl(
     return rotTransl;
 }
 
-Mat_<double> estimatePose_SVD(Mat_<double> const imagePts, Mat_<double> const worldPts, Mat_<double> simplePose_pre)
+Mat_<double> estimatePose_SVD(Mat_<double> const imagePts, Mat_<double> const worldPts, Mat_<double> simplePose_pre, bool& pose_valid)
 {
+
     // Note that given R, t, the camera location in world
     // coordinates is not just t, but instead -inv(R)*t.
-
     Mat_<double> const rotTransl = estimateRotTransl(worldPts, imagePts);
-    Mat_<double> rotMatrix(3, 3);
-    Mat_<double> translation(3, 1);
-    rotTransl.col(0).copyTo(rotMatrix.col(0));
-    rotTransl.col(1).copyTo(rotMatrix.col(1));
-    rotTransl.col(2).copyTo(rotMatrix.col(2));
-    rotTransl.col(3).copyTo(translation);
+    if (abs(sum(rotTransl)[0]) == 0) {
+    	// invalid pose
+    	pose_valid = false;
+        Mat_<double> simplePose(7, 1);
+        simplePose(0) =  0;  // x
+        simplePose(1) =  0;  // y
+        simplePose(2) =  0;  // z
+        simplePose(3) =  0;  // v_x
+        simplePose(4) =  0;  // v_y
+        simplePose(5) =  0;  // v_z
+        simplePose(6) =  0;  	// yaw
+        return simplePose;
+    } else {
+    	// valid pose
+    	pose_valid = true;
 
-    Mat_<double> cameraLoc = -rotMatrix.t() * translation;
-    Mat_<double>cameraLoc_pre = simplePose_pre.rowRange(0,3);
+		// calculate translation vector and rotation matrix
+    	Mat_<double> rotMatrix(3, 3);
+		Mat_<double> translation(3, 1);
+		rotTransl.col(0).copyTo(rotMatrix.col(0));
+		rotTransl.col(1).copyTo(rotMatrix.col(1));
+		rotTransl.col(2).copyTo(rotMatrix.col(2));
+		rotTransl.col(3).copyTo(translation);
 
-    // Yaw (rotation around z axis):
-    // See http://planning.cs.uiuc.edu/node103.html
-    double cameraYaw = atan2(rotMatrix(1, 0), rotMatrix(0, 0));
-    double cameraYaw_pre = simplePose_pre(6);
+		// camera position in millimeter
+		Mat_<double> cameraLoc = -rotMatrix.t() * translation;
+		Mat_<double>cameraLoc_pre = simplePose_pre.rowRange(0,3);
+		cameraLoc = LPF(cameraLoc_pre, cameraLoc);
 
-    Mat_<double> simplePose(7, 1);
+		// camera yaw angle in radian
+		// See http://planning.cs.uiuc.edu/node103.html
+		double cameraYaw = atan2(rotMatrix(1, 0), rotMatrix(0, 0));
+		double cameraYaw_pre = simplePose_pre(6);
+		cameraYaw = LPF(cameraYaw_pre, cameraYaw);
 
+		// camera velocity in millimeter/second
+		gettimeofday(&t2,NULL);
+		double dt = time_diff(t1,t2);
+		Mat_<double> cameraVel = (cameraLoc-cameraLoc_pre) / dt;
+		Mat_<double>cameraVel_pre = simplePose_pre.rowRange(3,6);
+		cameraVel = LPF(cameraVel_pre, cameraVel);
 
-    cameraLoc = LPF(cameraLoc_pre, cameraLoc);
-    cameraYaw = LPF(cameraYaw_pre, cameraYaw);
-    float dt = 1.0;
-    Mat_<double> cameraVel = (cameraLoc-cameraLoc_pre) / dt;
-    Mat_<double>cameraVel_pre = simplePose_pre.rowRange(3,6);
+		// camera pose estimate
+		Mat_<double> simplePose(7, 1);
+		simplePose(0) =  cameraLoc(0);  // x
+		simplePose(1) =  cameraLoc(1);  // y
+		simplePose(2) =  cameraLoc(2);  // z
+		simplePose(3) =  cameraVel(0);  // v_x
+		simplePose(4) =  cameraVel(1);  // v_y
+		simplePose(5) =  cameraVel(2);  // v_z
+		simplePose(6) =  cameraYaw;  	// yaw
 
-    cameraVel = LPF(cameraVel_pre, cameraVel);
-
-    simplePose(0) =  cameraLoc(0);  // x
-    simplePose(1) =  cameraLoc(1);  // y
-    simplePose(2) =  cameraLoc(2);  // z
-    simplePose(3) =  cameraVel(0);  // v_x
-    simplePose(4) =  cameraVel(1);  // v_y
-    simplePose(5) =  cameraVel(2);  // v_z
-    simplePose(6) =  cameraYaw;  	// yaw
-
-    // cout << "simplePose: " << simplePose << endl;
-    return simplePose;
+	//    cout << "dt = " << dt << endl << endl;
+	//    cout << "simplePose: " << simplePose << endl;
+		t1 = t2;
+		return simplePose;
+    }
 }
 
 Mat_<double> estimatePose_SVD(Mat_<double> const imagePts, Mat_<double> const worldPts)
@@ -256,19 +300,9 @@ Mat_<double> estimatePose_GEO(Mat_<double> const imagePts, Mat_<double> const wo
     return simplePose;
 }
 
-
-Mat_<double> LPF(Mat_<double> msg_pre, Mat_<double> msg) {
-	Mat_<double>msg_filtered;
-	double alpha = 0.05;
-
-	msg_filtered = (1-alpha)*msg_pre + alpha * msg;
-
-	return msg_filtered;
-}
-
 double LPF(double msg_pre, double msg) {
 	double msg_filtered;
-	double alpha = 0.05;
+	double alpha = 1.00;
 
 	msg_filtered = (1-alpha)*msg_pre + alpha * msg;
 

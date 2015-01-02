@@ -18,7 +18,7 @@ Mat imgFeature;
 
 static Mat_<double> simplePose(7,1);
 static Mat_<double> simplePose_pre(7,1);
-
+static bool pose_valid = false;
 ros::Publisher simplePosePub;
 
 // function prototypes.
@@ -47,8 +47,8 @@ int main(int argc, char** argv) {
 //    namedWindow("Original Image");
 //    namedWindow("Grayscale Image");
 //    namedWindow("Thresholded Image");
-	namedWindow("Feature Image");
-	startWindowThread();
+//	namedWindow("Feature Image");
+//	startWindowThread();
 
 	// subscribe webcam video from usb_cam.
 	image_transport::Subscriber sub = it.subscribe("/usb_cam/image_raw", 1, &imageCallback);
@@ -113,8 +113,8 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 //				cout << "imgPts = " << endl << imagePts << endl << endl;
 //				cout << "worldPts = " << endl << worldPts << endl << endl;
 
-			// estimate pose
-			simplePose = estimatePose_SVD(imagePts, worldPts, simplePose_pre); 		//
+			// estimate pose ( in millimeter )
+			simplePose = estimatePose_SVD(imagePts, worldPts, simplePose_pre, pose_valid); 		//
 			simplePose_pre = simplePose;
 //			cout << "simplePose = " << endl << simplePose.t() << endl;
 
@@ -123,9 +123,12 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 //	simplePose = LPF(simplePose_pre, simplePose);
 //	simplePose_pre = simplePose;
 
-
-    Float64MultiArray simplePoseMsg = makeSimplePoseMsg(simplePose);
-    simplePosePub.publish(simplePoseMsg);
+	// send pose estimate only when it is valid.
+	if (pose_valid) {
+		// send pose estimate message ( in meter )
+		Float64MultiArray simplePoseMsg = makeSimplePoseMsg(simplePose);
+		simplePosePub.publish(simplePoseMsg);
+	}
 
 	// show images.
 //	imshow("Original Image", input_bridge->image); 	// show the original image
@@ -148,14 +151,13 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 
 Float64MultiArray makeSimplePoseMsg(Mat_<double> const simplePose)
 {
-    Float64MultiArray simplePoseMsg;
-    simplePoseMsg.data.push_back(simplePose(0));
-    simplePoseMsg.data.push_back(simplePose(1));
-    simplePoseMsg.data.push_back(simplePose(2));
-    simplePoseMsg.data.push_back(simplePose(3));
-    simplePoseMsg.data.push_back(simplePose(4));
-    simplePoseMsg.data.push_back(simplePose(5));
+    Float64MultiArray simplePoseMsg;	// in meter
+    simplePoseMsg.data.push_back(simplePose(0)/1000);
+    simplePoseMsg.data.push_back(simplePose(1)/1000);
+    simplePoseMsg.data.push_back(simplePose(2)/1000);
+    simplePoseMsg.data.push_back(simplePose(3)/1000);
+    simplePoseMsg.data.push_back(simplePose(4)/1000);
+    simplePoseMsg.data.push_back(simplePose(5)/1000);
     simplePoseMsg.data.push_back(simplePose(6));
-    simplePoseMsg.data.push_back(simplePose(7));
     return simplePoseMsg;
 }

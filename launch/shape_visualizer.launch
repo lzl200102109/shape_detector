@@ -6,16 +6,20 @@
     <param name="pixel_format" value="yuyv" />
     <param name="camera_frame_id" value="usb_cam" />
     <param name="io_method" value="mmap"/>
+    <param name="framerate" value="40"/>
   </node>
 
   <node name="shape_detector" pkg="shape_detector" type="shape_detector" >
   </node>
 
+
+<!--
   <node name="shape_visualizer" pkg="using_markers" type="pose_visualizer" >
   </node>
 
   <node name="rviz" pkg="rviz" type="rviz" >
   </node>
-  
+-->
+
 </launch>
 
