@@ -3,8 +3,8 @@ using namespace cv;
 using namespace std;
 
 // trackbar
-//int threshold_value = 35;		// black
-int threshold_value = 175;		// red
+int threshold_value = 55;		// black
+//int threshold_value = 175;		// red
 int threshold_type = 1;
 
 

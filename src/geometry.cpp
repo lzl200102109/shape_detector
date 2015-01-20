@@ -178,20 +178,20 @@ Mat_<double> estimatePose_SVD(Mat_<double> const imagePts, Mat_<double> const wo
 		// camera position in millimeter
 		Mat_<double> cameraLoc = -rotMatrix.t() * translation;
 		Mat_<double>cameraLoc_pre = simplePose_pre.rowRange(0,3);
-		cameraLoc = LPF(cameraLoc_pre, cameraLoc);
+//		cameraLoc = LPF(cameraLoc_pre, cameraLoc);
 
 		// camera yaw angle in radian
 		// See http://planning.cs.uiuc.edu/node103.html
 		double cameraYaw = atan2(rotMatrix(1, 0), rotMatrix(0, 0));
 		double cameraYaw_pre = simplePose_pre(6);
-		cameraYaw = LPF(cameraYaw_pre, cameraYaw);
+//		cameraYaw = LPF(cameraYaw_pre, cameraYaw);
 
 		// camera velocity in millimeter/second
 		gettimeofday(&t2,NULL);
 		double dt = time_diff(t1,t2);
 		Mat_<double> cameraVel = (cameraLoc-cameraLoc_pre) / dt;
 		Mat_<double>cameraVel_pre = simplePose_pre.rowRange(3,6);
-		cameraVel = LPF(cameraVel_pre, cameraVel);
+//		cameraVel = LPF(cameraVel_pre, cameraVel);
 
 		// camera pose estimate
 		Mat_<double> simplePose(7, 1);

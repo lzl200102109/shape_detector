@@ -25,7 +25,7 @@ using namespace cv;
 
 
 const double f = 682.0;					// focal length in pixel
-const double SCALE_FACTOR = 1.0;	// scale factor
+const double SCALE_FACTOR = 1/4.0;	// scale factor
 
 
 

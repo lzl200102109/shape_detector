@@ -1,0 +1,34 @@
+<launch>
+	<node name="camera" pkg="usb_cam" type="usb_cam_node">
+		<param name="video_device" value="/dev/video0" />
+
+		<!-- 
+		See3Cam supported resolution: 1280x720 (60Hz), 
+		                              1280x960 (53Hz), 
+		                               640x480 (53Hz). 
+		-->
+
+		<param name="image_width" value="640" />
+		<param name="image_height" value="480" />
+
+		<param name="pixel_format" value="yuyv" />
+		<param name="framerate" value="20" />
+		<param name="camera_frame_id" value="see3cam" />
+	</node>
+ 
+<!--
+	<node name="camera_output" pkg="image_view" type="image_view" respawn="false" output="screen">
+	    <remap from="image" to="/camera/image_raw"/>
+	    <param name="autosize" value="true" />
+	</node>
+-->
+
+	<node name="proc" ns="camera" pkg="image_proc" type="image_proc" args="">
+	</node>
+
+	<node name="image_proc_output" pkg="image_view" type="image_view" respawn="false" output="screen">
+	    <remap from="image" to="/camera/image_mono"/>
+	    <param name="autosize" value="true" />
+    </node>
+
+</launch>
