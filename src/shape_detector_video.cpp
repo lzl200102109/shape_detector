@@ -130,8 +130,8 @@ void imageCallback(const sensor_msgs::ImageConstPtr& msg)
 	cv_bridge::CvImagePtr input_bridge_feature(new cv_bridge::CvImage);
 	input_bridge_feature->image = imgFeature;
 	sensor_msgs::ImagePtr imgFeatureMsg = input_bridge_feature->toImageMsg();
-	imgFeatureMsg->encoding = "mono8";
-	imgFeaturePub.publish(msg);
+	imgFeatureMsg->encoding = "rgb8";
+	imgFeaturePub.publish(imgFeatureMsg);
 
 	// send pose estimate only when it is valid.
 	if (pose_valid) {
